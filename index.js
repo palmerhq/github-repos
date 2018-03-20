@@ -14,15 +14,15 @@ cacheData();
 setInterval(cacheData, ms('15m'));
 
 function log(text) {
-  return slack(text, process.env.TOKEN_EVENTS);
+  return slack(text, process.env.EVENTS_URL);
 }
 
 function logError(text) {
-  return slack(text, process.env.TOKEN_ALERTS);
+  return slack(text, process.env.ERRORS_URL);
 }
 
 function slack(text, id) {
-  fetch(`https://hooks.slack.com/services/${id}`, {
+  fetch(id, {
     method: 'POST',
     body: JSON.stringify({ text }),
   });
@@ -30,11 +30,14 @@ function slack(text, id) {
 
 function cacheData() {
   const start = Date.now();
-  fetch('https://api.github.com/orgs/jaredpalmer/repos?per_page=100', {
-    headers: {
-      Accept: 'application/vnd.github.preview',
-    },
-  })
+  fetch(
+    'https://api.github.com/users/jaredpalmer/repos?type=owner&per_page=100',
+    {
+      headers: {
+        Accept: 'application/vnd.github.preview',
+      },
+    }
+  )
     .then(res => {
       if (res.status !== 200) {
         return logError('Non-200 response code from GitHub: ' + res.status);
@@ -61,7 +64,7 @@ function cacheData() {
         }
       });
 
-      if (featured !== 3) {
+      if (featured !== 5) {
         return logError(
           `Error: GitHub did not include all projects (${featured})`
         );

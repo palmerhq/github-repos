@@ -15,6 +15,12 @@
       "camelcase": 0
     }
   },
+  "now": {
+    "env": {
+      "EVENTS_URL": "@prod_slack_events_url",
+      "ERRORS_URL": "@prod_slack_errors_url"
+    }
+  },
   "dependencies": {
     "micro": "9.0.2",
     "ms": "2.1.1",
