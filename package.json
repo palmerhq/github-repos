@@ -15,9 +15,6 @@
       "camelcase": 0
     }
   },
-  "now": {
-    "alias": "github-repos.zeit.sh"
-  },
   "dependencies": {
     "micro": "9.0.2",
     "ms": "2.1.1",
