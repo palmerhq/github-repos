@@ -4,6 +4,7 @@
   "env": {
     "NODE_ENV": "production",
     "EVENTS_URL": "@prod_slack_events_url",
-    "ERRORS_URL": "@prod_slack_errors_url"
+    "ERRORS_URL": "@prod_slack_errors_url",
+    "GITHUB_API_KEY": "@palmerbot-github-api-key"
   }
 }
