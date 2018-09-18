@@ -1,25 +1,25 @@
+const { json } = require('micro');
 const fetch = require('node-fetch');
 const ms = require('ms');
 
-let data = {
-  jaredpalmer: [],
-  palmerhq: [],
-};
+let cachedRepos = [];
 
-module.exports = async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET');
-  return data;
+const owners = [
+  {
+    name: 'jaredpalmer',
+    requiredRepos: ['razzle', 'backpack', 'react-fns', 'after.js', 'formik'],
+  },
+  {
+    name: 'palmerhq',
+  },
+];
+
+const githubRequestHeaders = {
+  headers: {
+    Authorization: `token ${process.env.GITHUB_API_KEY}`,
+    Accept: 'application/vnd.github.preview',
+  },
 };
- 
-// Cache data now and every X ms
-const cacheJared = createFetcher('jaredpalmer');
-const cachePalmer = createFetcher('palmerhq');
-  
-cacheJared();
-cachePalmer()
-setInterval(cacheJared, ms('15m'));
-setInterval(cachePalmer, ms('16m'));
 
 function log(text) {
   return slack(text, process.env.EVENTS_URL);
@@ -29,76 +29,132 @@ function logError(text) {
   return slack(text, process.env.ERRORS_URL);
 }
 
-function slack(text, id) {
-  fetch(id, {
-    method: 'POST',
-    body: JSON.stringify({ text }),
-  });
-}
-
-function createFetcher(login) {
-  return function fetchProjects() {
-    const start = Date.now();
-    fetch(
-    `https://api.github.com/users/${login}/repos?type=owner&per_page=100`,
-    {
-      headers: {
-        Accept: 'application/vnd.github.preview',
-      },
-    }
-  )
-    .then(res => {
-      if (res.status !== 200) {
-        return logError('Non-200 response code from GitHub: ' + res.status);
-      }
-      return res.json();
-    })
-    .then(data_ => {
-      if (!data_) {
-        return;
-      }
-
-      // Ugly hack because github sometimes doesn't return
-      // all the right search results :|
-      if (login === 'jaredpalmer') {
-        let featured = 0;
-        data_.forEach(({ name }) => {
-          if (
-            name === 'razzle' ||
-            name === 'backpack' ||
-            name === 'react-fns' ||
-            name === 'after.js' ||
-            name === 'formik'
-          ) {
-            featured++;
-          }
-        });
-
-        if (featured !== 5) {
-          return logError(
-            `Error: GitHub did not include all projects (${featured})`
-          );
-        }
-      }
-
-      data[login] = data_
-        .map(({ name, description, stargazers_count, html_url }) => ({
-          name,
-          description,
-          url: html_url,
-          stars: stargazers_count,
-        }))
-        .sort((p1, p2) => p2.stars - p1.stars);
-
-      log(
-        `Re-built projects cache. for @${login} ` +
-          `Total: ${data[login].length} public projects. ` +
-          `Elapsed: ${new Date() - start}ms`
-      );
-    })
-    .catch(err => {
-      logError('Error parsing response from GitHub: ' + err.stack);
+function slack(text, url) {
+  if (process.env.NODE_ENV === 'production') {
+    fetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ text }),
     });
+  } else {
+    console.log(text);
   }
 }
 
+async function cache() {
+  const start = Date.now();
+
+  let repos = [];
+  for (const owner of owners) {
+    try {
+      const response = await fetch(
+        `https://api.github.com/users/${
+          owner.name
+        }/repos?type=owner&per_page=100`,
+        githubRequestHeaders
+      );
+
+      if (response.status !== 200) {
+        logError(`Non-200 response code from GitHub: ${response.status}`);
+        continue;
+      }
+
+      const ownerRepos = await response.json();
+
+      if (owner.requiredRepos) {
+        const requiredCount = ownerRepos.reduce(
+          (acc, { name }) =>
+            owner.requiredRepos.includes(name) ? acc + 1 : acc,
+          0
+        );
+
+        if (requiredCount !== owner.requiredRepos.length) {
+          logError(
+            `Error: GitHub did not include all projects (${requiredCount})`
+          );
+          continue;
+        }
+      }
+
+      const filteredRepos = ownerRepos.filter(({ fork }) => !fork);
+
+      const languageRequests = filteredRepos.map(async ({ name }) => {
+        try {
+          const response = await fetch(
+            `https://api.github.com/repos/${owner.name}/${name}/languages`,
+            githubRequestHeaders
+          );
+          const repoLanguages = await response.json();
+          return repoLanguages;
+        } catch (error) {
+          return;
+        }
+      });
+
+      const languages = await Promise.all(languageRequests);
+
+      repos = [
+        ...repos,
+        ...filteredRepos.map(
+          (
+            {
+              name,
+              description,
+              stargazers_count,
+              html_url,
+              owner: { login: owner },
+            },
+            index
+          ) => ({
+            name,
+            owner,
+            description,
+            url: html_url,
+            stars: stargazers_count,
+            languages: languages[index],
+          })
+        ),
+      ];
+    } catch (error) {
+      logError('Error parsing response from GitHub: ' + error.stack);
+      continue;
+    }
+  }
+
+  cachedRepos = repos.sort(
+    ({ stars: firstStars }, { stars: secondStars }) => secondStars - firstStars
+  );
+
+  log(
+    `Re-built projects cache.\nTotal: ${
+      cachedRepos.length
+    } public projects.\nElapsed: ${new Date() - start}ms`
+  );
+}
+
+cache();
+setInterval(cache, ms('15m'));
+
+// micro server
+module.exports = async (req, res) => {
+  // @todo restrict this to palmer domains?
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST');
+
+  if (req.method === 'POST') {
+    const requestedRepoNames = await json(req);
+
+    const requestedRepos = [];
+    requestedRepoNames.forEach(({ name, owner }) => {
+      requestedRepos.push(
+        cachedRepos.find(
+          ({ name: cachedName, owner: cachedOwner }) =>
+            name === cachedName && owner === cachedOwner
+        )
+      );
+    });
+
+    return requestedRepos;
+  } else {
+    return cachedRepos;
+  }
+};
