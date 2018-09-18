@@ -1,6 +1,6 @@
 # github-repos
 
-Microservice to cache and expose GitHub projects for Jared Palmer
+Microservice to cache and expose GitHub projects for The Palmer Group
 
 ## Usage
 
@@ -28,7 +28,7 @@ npm run dev
     "name": "project-name",
     "description": "The description woot",
     "stars": 3040,
-    "url": "https://github.com/jaredpalmer/test"
+    "url": "https://github.com/palmerhq/test"
   }
 ]
 ```
@@ -41,7 +41,7 @@ npm run dev
 
 You can use `npm test` to run the tests and see if your changes have broken anything.
 
-## Authors
+## Original Authors
 
 * Guillermo Rauch ([@rauchg](https://twitter.com/rauchg)) - [▲ZEIT](https://zeit.co)
 * Leo Lamprecht ([@notquiteleo](https://twitter.com/notquiteleo)) - [▲ZEIT](https://zeit.co)
