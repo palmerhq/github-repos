@@ -7,10 +7,11 @@ let cachedRepos = [];
 const owners = [
   {
     name: 'jaredpalmer',
-    requiredRepos: ['razzle', 'backpack', 'react-fns', 'after.js', 'formik', 'the-platform'],
+    requiredRepos: ['razzle', 'backpack', 'react-fns', 'after.js', 'formik'],
   },
   {
     name: 'palmerhq',
+    requiredRepos: ['the-platform'],
   },
 ];
 
