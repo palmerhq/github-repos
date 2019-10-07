@@ -7,11 +7,19 @@ let cachedRepos = [];
 const owners = [
   {
     name: 'jaredpalmer',
-    requiredRepos: ['razzle', 'backpack', 'react-fns', 'after.js', 'formik'],
+    requiredRepos: [
+      'razzle',
+      'backpack',
+      'react-fns',
+      'after.js',
+      'formik',
+      'the-platform',
+      'tsdx',
+    ],
   },
   {
     name: 'palmerhq',
-    requiredRepos: ['the-platform'],
+    requiredRepos: ['changecast'],
   },
 ];
 
@@ -48,9 +56,7 @@ async function cache() {
   for (const owner of owners) {
     try {
       const response = await fetch(
-        `https://api.github.com/users/${
-          owner.name
-        }/repos?type=owner&per_page=100`,
+        `https://api.github.com/users/${owner.name}/repos?type=owner&per_page=100`,
         githubRequestHeaders
       );
 
