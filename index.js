@@ -19,7 +19,7 @@ const owners = [
   },
   {
     name: 'palmerhq',
-    requiredRepos: ['changecast'],
+    requiredRepos: ['typescript'],
   },
 ];
 
@@ -55,17 +55,30 @@ async function cache() {
   let repos = [];
   for (const owner of owners) {
     try {
-      const response = await fetch(
-        `https://api.github.com/users/${owner.name}/repos?type=owner&per_page=100`,
-        githubRequestHeaders
-      );
+      const [response, response2] = await Promise.all([
+        fetch(
+          `https://api.github.com/users/${owner.name}/repos?type=owner&visibility=public&per_page=100`,
+          githubRequestHeaders
+        ),
+        fetch(
+          `https://api.github.com/users/${owner.name}/repos?type=owner&visibility=public&per_page=100&page=2`,
+          githubRequestHeaders
+        ),
+      ]);
 
-      if (response.status !== 200) {
-        logError(`Non-200 response code from GitHub: ${response.status}`);
+      if (response.status !== 200 || response2.status !== 200) {
+        logError(
+          `Non-200 response code from GitHub: ${response.status +
+            ' ' +
+            response2.status !==
+            200}`
+        );
         continue;
       }
 
-      const ownerRepos = await response.json();
+      const owner1Repos = await response.json();
+      const owner2Repos = await response2.json();
+      const ownerRepos = [...owner1Repos, ...owner2Repos];
 
       if (owner.requiredRepos) {
         const requiredCount = ownerRepos.reduce(
